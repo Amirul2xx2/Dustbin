@@ -57,7 +57,7 @@
         cursor: pointer;
       }
     </style>
-    </div>
+  </div>
 
   <script>
     let dryLevel = 2;  // Dry Bin Level (0=Empty, 1=Half Full, 2=Full)
@@ -181,10 +181,10 @@
     function acknowledge(type) {
       if (type === "Dry") {
         dryLevel = 0;  // Set to Empty
-        dryKg = Math.max(0, dryKg + 1);  // Decrease weight by 20kg (or adjust as needed)
+        dryKg = Math.max(0, dryKg - 10);  // Decrease weight (adjust as needed)
       } else if (type === "Wet") {
         wetLevel = 0;  // Set to Empty
-        wetKg = Math.max(0, wetKg + 1);  // Decrease weight by 20kg (or adjust as needed)
+        wetKg = Math.max(0, wetKg - 10);  // Decrease weight (adjust as needed)
       }
 
       // Update UI and Charts
