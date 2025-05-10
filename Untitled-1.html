@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Waste Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4 text-center">♻️ Smart Bin Monitoring</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white p-4 rounded-lg shadow-lg">
+        <h3 class="text-lg font-semibold mb-4 text-center">Bin Waste Levels</h3>
+        <canvas id="barChart"></canvas>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow-lg">
+        <h3 class="text-lg font-semibold mb-4 text-center">Waste Distribution</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+      <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+        <h2 class="text-xl font-semibold mb-4 text-center">Bin Status</h2>
+        <div id="statusDisplay" class="grid grid-cols-2 gap-8">
+          <div class="text-center">
+            <h3 class="font-semibold text-lg">Dry Bin</h3>
+            <p>Status: <span id="dryStatus" class="font-bold text-xl"></span></p>
+          </div>
+          <div class="text-center">
+            <h3 class="font-semibold text-lg">Wet Bin</h3>
+            <p>Status: <span id="wetStatus" class="font-bold text-xl"></span></p>
+          </div>
+        </div>
+      </div>
+      <div id="userAlerts" class="space-y-4 mb-6"></div>
+    </div>
+  
+    <style>
+      .alert {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        font-weight: bold;
+      }
+      .alert-red {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
+      .alert button {
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background-color: #4c6ef5;
+        color: white;
+        border: none;
+        border-radius: 0.375rem;
+        cursor: pointer;
+      }
+    </style>
+    </div>
+
+  <script>
+    let dryLevel = 2;  // Dry Bin Level (0=Empty, 1=Half Full, 2=Full)
+    let wetLevel = 2;  // Wet Bin Level
+    let dryKg = 60;    // Dry Bin Weight (kg)
+    let wetKg = 40;    // Wet Bin Weight (kg)
+    let pieChart;
+    let barChart;
+
+    // Update Status Labels for Combined Group
+    function updateStatusLabels() {
+      const statusText = ["Empty", "Half Full", "Full"];
+      document.getElementById("dryStatus").innerText = statusText[dryLevel];
+      document.getElementById("wetStatus").innerText = statusText[wetLevel];
+    }
+
+    // Get Data for Bar Chart (Resets on Monday 00:00)
+    function getEmptyBarDataIfReset() {
+      const now = new Date();
+      const isMondayMidnight = now.getDay() === 1 && now.getHours() === 0;
+      if (isMondayMidnight) {
+        return [0, 0, 0, 0, 0, 0, 0];  // Reset all values to 0 at 00:00 Monday
+      } else {
+        return [30, 50, 80, 60, 40, 20, 50];  // Sample data
+      }
+    }
+
+    // Initialize Bar Chart
+    function initBarChart() {
+      const ctx = document.getElementById('barChart');
+      barChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          datasets: [
+            {
+              label: 'Dry Bin Level %',
+              data: getEmptyBarDataIfReset(),
+              backgroundColor: '#4c6ef5'
+            },
+            {
+              label: 'Wet Bin Level %',
+              data: getEmptyBarDataIfReset(),
+              backgroundColor: '#34d399'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+    }
+
+    // Initialize Pie Chart
+    function initPieChart() {
+      const ctx = document.getElementById('pieChart');
+      pieChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Dry Waste', 'Wet Waste'],
+          datasets: [{
+            data: [dryKg, wetKg],
+            backgroundColor: ['#1e3a8a', '#34d399']
+          }]
+        },
+        options: {
+          plugins: {
+            datalabels: {
+              color: '#fff',
+              formatter: (value, ctx) => {
+                let sum = dryKg + wetKg;
+                let percentage = (value / sum * 100).toFixed(1) + "%";
+                return `${ctx.chart.data.labels[ctx.dataIndex]}: ${percentage} (${value}kg)`;
+              },
+              font: {
+                weight: 'bold',
+                size: 12
+              }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    // Update Pie Chart with new values
+    function updatePieChart() {
+      pieChart.data.datasets[0].data = [dryKg, wetKg];
+      pieChart.update();
+    }
+
+    // Show Alerts based on Bin Levels
+    function showAlerts() {
+      const alertDiv = document.getElementById('userAlerts');
+      alertDiv.innerHTML = '';
+      if (dryLevel === 2) {
+        alertDiv.innerHTML += `
+          <div class="alert alert-red">
+            🚨 <strong>Dry Bin Full</strong><br>
+            Please schedule pickup.<br>
+            <button onclick="acknowledge('Dry')">Acknowledge</button>
+          </div>`;
+      }
+      if (wetLevel === 2) {
+        alertDiv.innerHTML += `
+          <div class="alert alert-red">
+            🚨 <strong>Wet Bin Full</strong><br>
+            Please schedule pickup.<br>
+            <button onclick="acknowledge('Wet')">Acknowledge</button>
+          </div>`;
+      }
+    }
+
+    // Acknowledge Pickup - Decrease Bin Weight and Reset Level
+    function acknowledge(type) {
+      if (type === "Dry") {
+        dryLevel = 0;  // Set to Empty
+        dryKg = Math.max(0, dryKg + 1);  // Decrease weight by 20kg (or adjust as needed)
+      } else if (type === "Wet") {
+        wetLevel = 0;  // Set to Empty
+        wetKg = Math.max(0, wetKg + 1);  // Decrease weight by 20kg (or adjust as needed)
+      }
+
+      // Update UI and Charts
+      updateStatusLabels();
+      updatePieChart();
+      showAlerts();
+
+      // Alert confirmation
+      alert(`${type} bin marked as collected.`);
+    }
+
+    // Initialize the dashboard
+    updateStatusLabels();
+    initBarChart();
+    initPieChart();
+    showAlerts();
+  </script>
+</body>
+</html>
